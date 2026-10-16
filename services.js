@@ -6,12 +6,13 @@ import { yokohamaWeather } from './weather.js';
 import { buildSystem, selectHistory, appendInstruction, withCacheOnLast, generate, collect, IMAGE_INSTRUCTION, IMAGE_SCHEMA, roomListText } from './engine.js';
 import { generateImage } from './openai.js';
 import { toast } from './ui.js';
+import { chatKey } from './settings.js';
 
 export const bus = new EventTarget();
 export const emit = (name, detail) => bus.dispatchEvent(new CustomEvent(name, { detail }));
 
 export function requireKey(kind = 'anthropic') {
-  if (kind === 'anthropic' && !S.settings.anthropicKey) { toast('先に設定でClaude APIキーを入力してください', 3500); emit('nav', { to: 'vault', panel: 'settings' }); return false; }
+  if (kind === 'anthropic' && !chatKey(S.settings)) { toast(`先に設定で${S.settings.provider === 'claude' ? 'Claude' : 'OpenAI'} APIキーを入力してください`, 3500); emit('nav', { to: 'vault', panel: 'settings' }); return false; }
   if (kind === 'openai' && !S.settings.openaiKey) { toast('先に設定でOpenAI APIキーを入力してください', 3500); emit('nav', { to: 'vault', panel: 'settings' }); return false; }
   return true;
 }
@@ -204,7 +205,7 @@ export const needsSync = () => !S.live.lastSync || hourKey(S.live.lastSync) !== 
 // 背景処理：現在地だけを同期（本文は作らない）
 let bgRunning = false;
 export async function syncLocations() {
-  if (bgRunning || S.busy || !S.settings.anthropicKey || !S.settings.syncOn || !needsSync()) return false;
+  if (bgRunning || S.busy || !chatKey(S.settings) || !S.settings.syncOn || !needsSync()) return false;
   bgRunning = true;
   emit('bg', { text: '家族の様子を更新中…' });
   try {
@@ -227,7 +228,7 @@ export async function syncLocations() {
 // 背景処理：家族グループLINEの自動投稿
 export async function groupTick(force = false) {
   const s = S.settings;
-  if (bgRunning || S.busy || !s.anthropicKey || !(s.groupAuto || force)) return false;
+  if (bgRunning || S.busy || !chatKey(s) || !(s.groupAuto || force)) return false;
   const p = jstParts();
   const quiet = p.hour >= 2 && p.hour < 7;
   const iv = Math.max(15, s.groupInterval || 120) * 60000;

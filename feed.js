@@ -1,3 +1,4 @@
+import { chatKey } from './settings.js';
 import { db, uid } from './db.js';
 import { S, avatarHtml, savePhoto } from './state.js';
 import { NPCS, CHARACTERS, findChar, charById } from './data.js';
@@ -149,7 +150,7 @@ export async function render(root, params, { nav }) {
     if (dataUrl) photoId = (await savePhoto({ dataUrl, album: r.tags[0] || 'FEED', source: 'feed' })).id;
     const p = { id: uid(), author: 'umi', dataUrl, caption: r.caption, tags: r.tags, likes: 0, liked: false, comments: [], photoId, createdAt: Date.now() };
     await db.put('posts', p); posts.unshift(p); drawAll();
-    if (r.react && S.settings.anthropicKey) {
+    if (r.react && chatKey(S.settings)) {
       setStatus('家族の反応を待っています…');
       try { p.comments = await askComments(p); await db.put('posts', p); drawAll(); } catch (e) { toast('コメントを作れませんでした'); }
       finally { setStatus(''); }

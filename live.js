@@ -1,3 +1,4 @@
+import { chatKey } from './settings.js';
 import { db } from './db.js';
 import { S, addMessage, avatarHtml, saveLive } from './state.js';
 import { NPCS, FLOORS, roomById, roomLabel, bgUrl, jstParts, findChar, charById } from './data.js';
@@ -72,7 +73,7 @@ export async function render(root, params, { nav, setBackground }) {
   const drawAll = () => {
     list.innerHTML = '';
     const v = visible();
-    if (!v.length) list.innerHTML = `<div class="empty"><p>${esc(roomLabel(roomById(S.live.umiRoom)))}</p><p class="sub">${S.settings.anthropicKey ? '話しかけるか、＋ →「今の様子を見る」で始まります。' : 'HOME → Settings でAPIキーを入力してください。'}</p></div>`;
+    if (!v.length) list.innerHTML = `<div class="empty"><p>${esc(roomLabel(roomById(S.live.umiRoom)))}</p><p class="sub">${chatKey(S.settings) ? '話しかけるか、＋ →「今の様子を見る」で始まります。' : 'HOME → Settings でAPIキーを入力してください。'}</p></div>`;
     for (const m of v) list.appendChild(el(m));
     header();
     scroll(true);
@@ -214,7 +215,7 @@ export async function render(root, params, { nav, setBackground }) {
   if (S.busy) comp.setBusy(true);
 
   if (params.move && params.move !== S.live.umiRoom) await moveTo(params.move);
-  else if (S.settings.syncOn && S.settings.anthropicKey && !S.busy && needsSync()) runLive({ kind: 'sync' });
+  else if (S.settings.syncOn && chatKey(S.settings) && !S.busy && needsSync()) runLive({ kind: 'sync' });
 
   return () => bus.removeEventListener('live-state', onState);
 }

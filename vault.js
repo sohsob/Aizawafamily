@@ -162,12 +162,14 @@ function settings(b) {
   b.innerHTML = `
     <form class="form" autocomplete="off">
       <h3>APIキー</h3>
-      <label>Claude APIキー<input type="password" name="anthropicKey" value="${esc(s.anthropicKey)}" placeholder="sk-ant-..."></label>
-      <label>OpenAI APIキー（画像用）<input type="password" name="openaiKey" value="${esc(s.openaiKey)}" placeholder="sk-..."></label>
+      <label>OpenAI APIキー<input type="password" name="openaiKey" value="${esc(s.openaiKey)}" placeholder="sk-..."></label>
+      <label>Claude APIキー（Claudeで会話する場合だけ）<input type="password" name="anthropicKey" value="${esc(s.anthropicKey)}" placeholder="sk-ant-..."></label>
       <p class="hint">キーはこの端末の中にだけ保存され、AnthropicとOpenAI以外には送られません。</p>
 
       <h3>会話</h3>
-      <label>モデル<select name="modelSel">${models.map(m => `<option ${m === s.model ? 'selected' : ''}>${m}</option>`).join('')}<option value="custom" ${models.includes(s.model) ? '' : 'selected'}>その他（下に入力）</option></select></label>
+      <label>会話に使うAI<select name="provider"><option value="openai" ${s.provider !== 'claude' ? 'selected' : ''}>OpenAI（ChatGPT）</option><option value="claude" ${s.provider === 'claude' ? 'selected' : ''}>Claude</option></select></label>
+      <label>OpenAIの会話モデル<input name="openaiModel" list="oa-models" value="${esc(s.openaiModel)}"><datalist id="oa-models"><option value="gpt-5.5"><option value="gpt-6-sol"><option value="gpt-5.6-sol"><option value="gpt-5.4-mini"></datalist></label>
+      <label>Claudeのモデル<select name="modelSel">${models.map(m => `<option ${m === s.model ? 'selected' : ''}>${m}</option>`).join('')}<option value="custom" ${models.includes(s.model) ? '' : 'selected'}>その他（下に入力）</option></select></label>
       <label class="custom-model" ${models.includes(s.model) ? 'hidden' : ''}>モデル名<input name="modelCustom" value="${esc(models.includes(s.model) ? '' : s.model)}"></label>
       <label>1回の出力上限（トークン）<input type="number" name="maxTokens" value="${s.maxTokens}" min="1000" max="32000" step="500"></label>
       <label>毎回送る直近履歴（文字数）<input type="number" name="historyChars" value="${s.historyChars}" min="5000" step="5000"></label>
@@ -209,6 +211,8 @@ function settings(b) {
     e.preventDefault();
     s.anthropicKey = f.anthropicKey.value.trim();
     s.openaiKey = f.openaiKey.value.trim();
+    s.provider = f.provider.value;
+    s.openaiModel = f.openaiModel.value.trim() || DEFAULTS.openaiModel;
     s.model = f.modelSel.value === 'custom' ? (f.modelCustom.value.trim() || DEFAULTS.model) : f.modelSel.value;
     s.maxTokens = Math.max(1000, +f.maxTokens.value || DEFAULTS.maxTokens);
     s.historyChars = Math.max(5000, +f.historyChars.value || DEFAULTS.historyChars);

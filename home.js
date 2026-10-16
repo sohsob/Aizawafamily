@@ -1,3 +1,4 @@
+import { chatKey } from './settings.js';
 import { S, avatarHtml, saveLive } from './state.js';
 import { NPCS, FLOORS, bgUrl, jstParts, roomById, charById } from './data.js';
 import { db } from './db.js';
@@ -69,7 +70,7 @@ export async function render(root, params, { nav, setBackground }) {
       <h2 class="section">AI CORE</h2>
       <button class="card core" data-panel="docs">${icon('database', 30)}<div><div class="core-title">Prompt Vault</div><div class="core-sub">原文保管庫</div></div><span class="open">OPEN</span></button>
       <button class="card core" data-panel="media">${icon('image', 30)}<div><div class="core-title">Faces & Rooms</div><div class="core-sub">アイコン・部屋の背景</div></div><span class="open">OPEN</span></button>
-      <button class="card core" data-panel="settings">${icon('settings', 30)}<div><div class="core-title">Settings</div><div class="core-sub">APIキー・モデル・バックアップ${S.settings.anthropicKey ? '' : '（APIキー未入力）'}</div></div><span class="open">OPEN</span></button>
+      <button class="card core" data-panel="settings">${icon('settings', 30)}<div><div class="core-title">Settings</div><div class="core-sub">APIキー・モデル・バックアップ${chatKey(S.settings) ? '' : '（APIキー未入力）'}</div></div><span class="open">OPEN</span></button>
     </div>`;
 
     setBackground(bgUrl('home', S.bg));

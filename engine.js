@@ -1,5 +1,6 @@
 // 生成エンジン：モードごとのシステムプロンプト、履歴ウィンドウ、各種生成。
 import { runConversation } from './claude.js';
+import { chatKey, chatModel } from './settings.js';
 import { readDoc, searchAll } from './docs.js';
 import { CHARACTERS, ROOMS, roomLabel } from './data.js';
 
@@ -151,8 +152,8 @@ export function roomListText() {
 // 汎用：ツールつきで本文を生成
 export function generate({ settings, system, messages, docs, tools = [], onText, onTool, signal, maxTokens }) {
   return runConversation({
-    key: settings.anthropicKey,
-    model: settings.model,
+    provider: settings.provider, key: chatKey(settings),
+    model: chatModel(settings),
     maxTokens: maxTokens || settings.maxTokens,
     system, messages,
     tools: [...docTools(docs), ...tools],
@@ -165,7 +166,7 @@ export async function collect({ settings, system, messages, docs, toolName, desc
   let got = null;
   const tool = { name: toolName, description, input_schema: schema, run: async (input) => { got = input; return '受け付けました。本文は書かずに終了してください。'; } };
   const res = await runConversation({
-    key: settings.anthropicKey, model: settings.model, maxTokens,
+    provider: settings.provider, key: chatKey(settings), model: chatModel(settings), maxTokens,
     system, messages,
     tools: [...(allowRead ? docTools(docs).filter(t => t.name === 'read_document') : []), tool],
     signal, onTool,

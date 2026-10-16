@@ -1,3 +1,4 @@
+import { runConversationOpenAI } from './openai-chat.js';
 // Claude API（Messages API）をブラウザから直接呼ぶ。ストリーミングとツール実行ループを担当。
 const API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -98,7 +99,12 @@ export async function streamOnce({ key, body, onText, signal }) {
 // ツールを実行しながら最後まで回す。
 // tools: [{ name, description, input_schema, run: async (input) => string }]
 // onText(fullTextSoFar) は表示用。ツール呼び出しが起きた回の前置きテキストは表示から外す。
-export async function runConversation({ key, model, maxTokens, system, messages, tools = [], onText, onTool, signal, maxSteps = 8 }) {
+export async function runConversation(args) {
+  if (args.provider === 'openai') return runConversationOpenAI(args);
+  return runConversationClaude(args);
+}
+
+async function runConversationClaude({ key, model, maxTokens, system, messages, tools = [], onText, onTool, signal, maxSteps = 8 }) {
   const convo = messages.slice();
   const toolDefs = tools.map(({ name, description, input_schema }) => ({ name, description, input_schema }));
   const toolMap = Object.fromEntries(tools.map(t => [t.name, t]));

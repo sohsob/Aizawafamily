@@ -4,6 +4,8 @@ const KEY = 'kyojuu-settings';
 export const DEFAULTS = {
   anthropicKey: '',
   openaiKey: '',
+  provider: 'openai',      // 会話に使うAI：'openai' または 'claude'
+  openaiModel: 'gpt-5.5',
   model: 'claude-opus-5-5',
   maxTokens: 6000,
   historyChars: 60000,      // 毎回送る直近履歴の上限（文字数）
@@ -19,6 +21,9 @@ export const DEFAULTS = {
   imageQuality: 'high',
   fontSize: 16,
 };
+
+export const chatKey = (s) => (s.provider === 'claude' ? s.anthropicKey : s.openaiKey);
+export const chatModel = (s) => (s.provider === 'claude' ? s.model : s.openaiModel);
 
 export function loadSettings() {
   try {
