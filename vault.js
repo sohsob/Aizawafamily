@@ -179,7 +179,7 @@ function settings(b) {
 
       <h3>LIVE</h3>
       <label class="check"><input type="checkbox" name="syncOn" ${s.syncOn ? 'checked' : ''}> 現実時間同期（LIVEを開いた時、時間が進んでいれば自動で今の様子を生成）</label>
-      <label class="check"><input type="checkbox" name="groupAuto" ${s.groupAuto ? 'checked' : ''}> 家族グループLINEに自動で投稿が届く（アプリを開いている間）</label>
+      <label class="check"><input type="checkbox" name="groupAuto" ${s.groupAuto ? 'checked' : ''}> 家族グループLINEに自動で投稿が届く（アプリを開いた時、間隔が空いていれば）</label>
       <label>グループ投稿の間隔（分）<input type="number" name="groupInterval" value="${s.groupInterval}" min="15" step="15"></label>
       <label>LIVE記録の追記先<select name="liveRecordDoc">${docOpts(s.liveRecordDoc)}</select></label>
 

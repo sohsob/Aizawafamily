@@ -74,10 +74,14 @@ async function init() {
   let last = 'home';
   try { last = localStorage.getItem('kyojuu-last-view') || 'home'; } catch (_) {}
   await nav(VIEWS[last] ? last : 'home');
+  // アプリを開いた時（起動時・ほかのアプリから戻ってきた時）だけ更新する
   const tick = async () => { await syncLocations(); await groupTick(); };
   setTimeout(tick, 1500);
-  setInterval(tick, 10 * 60 * 1000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tick(); });
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') hiddenAt = Date.now();
+    else if (hiddenAt && Date.now() - hiddenAt > 60 * 1000) tick();
+  });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
