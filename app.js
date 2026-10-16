@@ -1,6 +1,6 @@
 import { requestPersist } from './db.js';
 import { S, loadAll, totalUnread } from './state.js';
-import { bus } from './services.js';
+import { bus, syncLocations, groupTick } from './services.js';
 import { icon } from './icons.js';
 import { $, $$ } from './ui.js';
 import * as home from './home.js';
@@ -74,6 +74,10 @@ async function init() {
   let last = 'home';
   try { last = localStorage.getItem('kyojuu-last-view') || 'home'; } catch (_) {}
   await nav(VIEWS[last] ? last : 'home');
+  const tick = async () => { await syncLocations(); await groupTick(); };
+  setTimeout(tick, 1500);
+  setInterval(tick, 10 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tick(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 

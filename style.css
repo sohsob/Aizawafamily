@@ -117,6 +117,7 @@ pre, .pre { white-space: pre-wrap; word-break: break-word; font-size: .82em; lin
 .sync i { width: 12px; height: 12px; border-radius: 50%; background: var(--faint); }
 .sync.on { color: var(--green); }
 .sync.on i { background: var(--green); box-shadow: 0 0 10px rgba(63,217,154,.7); }
+.bgstat { font-size: 12px; color: var(--accent); min-height: 1.2em; }
 .weather { font-size: 12px; color: var(--mute); margin-top: 4px; min-height: 1.2em; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; margin: 28px 0 18px; border-radius: 999px; background: rgba(14,24,40,.8); border: 1px solid var(--line); }
 .seg button { padding: 14px 0; border-radius: 999px; font-family: var(--latin); font-weight: 600; letter-spacing: .3em; font-size: 15px; color: #b4c1d2; }

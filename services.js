@@ -3,7 +3,7 @@ import { db } from './db.js';
 import { S, saveLive, saveUnread, addMessage, appendToDoc, albumRefs, savePhoto } from './state.js';
 import { NPCS, CHARACTERS, findChar, findRoom, roomById, roomLabel, jstParts, charById } from './data.js';
 import { yokohamaWeather } from './weather.js';
-import { buildSystem, selectHistory, appendInstruction, collect, IMAGE_INSTRUCTION, IMAGE_SCHEMA, roomListText } from './engine.js';
+import { buildSystem, selectHistory, appendInstruction, withCacheOnLast, generate, collect, IMAGE_INSTRUCTION, IMAGE_SCHEMA, roomListText } from './engine.js';
 import { generateImage } from './openai.js';
 import { toast } from './ui.js';
 
@@ -61,6 +61,8 @@ export async function liveDyn({ forMode = 'live', now = new Date() } = {}) {
   t += `\n\n【各人物の現在地（前回確定）】\n${locText()}`;
   if (S.live.comingUp.length) t += `\n\n【COMING UP（うみの予定）】\n${S.live.comingUp.map(c => `・${c.time} ${c.room}：${c.text}`).join('\n')}`;
   if (forMode === 'live') t += `\n\n【居住ビルの部屋】\n${roomListText()}`;
+  const st = await recentStory();
+  if (st) t += `\n\n【STORYの直近の状況（参考。最終場面の再演はせず、今も続いている変化・約束・知識だけを反映する）】\n${st}`;
   return t;
 }
 
@@ -171,6 +173,86 @@ export async function renderImage({ prompt, characters = [], signal, onStatus })
     size: S.settings.imageSize, quality: S.settings.imageQuality, refImages: refs, signal,
   });
   return { dataUrl, used: refs.length };
+}
+
+// 直近のLIVE本文
+export async function recentLive(maxChars = 3500) {
+  const live = (await db.messages('live')).filter(m => m.role === 'assistant' || (m.role === 'user' && !m.sync));
+  let out = '';
+  for (let i = live.length - 1; i >= 0 && out.length < maxChars; i--) {
+    out = (live[i].role === 'user' ? 'うみ：' : '') + live[i].content + '\n\n' + out;
+  }
+  return out.slice(-maxChars);
+}
+
+// 直近のSTORY（最後に使ったスレッドの思い出記録＋末尾）
+export async function recentStory(maxChars = 2500) {
+  let id = null;
+  try { id = localStorage.getItem('kyojuu-last-thread'); } catch (_) {}
+  const threads = await db.all('threads');
+  const t = threads.find(x => x.id === id) || threads.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  if (!t) return '';
+  const msgs = (await db.messages(t.id)).filter(m => m.role === 'assistant' || m.role === 'user');
+  let tail = '';
+  for (let i = msgs.length - 1; i >= 0 && tail.length < maxChars; i--) tail = (msgs[i].role === 'user' ? 'うみ：' : '') + msgs[i].content + '\n\n' + tail;
+  return `${t.state ? `［最新の思い出記録］\n${t.state.slice(0, 2000)}\n\n` : ''}［最後の場面］\n${tail.slice(-maxChars)}`;
+}
+
+const hourKey = (ms) => { const p = jstParts(new Date(ms)); return `${p.date} ${p.hh}`; };
+export const needsSync = () => !S.live.lastSync || hourKey(S.live.lastSync) !== hourKey(Date.now());
+
+// 背景処理：現在地だけを同期（本文は作らない）
+let bgRunning = false;
+export async function syncLocations() {
+  if (bgRunning || S.busy || !S.settings.anthropicKey || !S.settings.syncOn || !needsSync()) return false;
+  bgRunning = true;
+  emit('bg', { text: '家族の様子を更新中…' });
+  try {
+    const { history } = await threadHistory('live', S.live.windowStart);
+    const system = buildSystem({ mode: 'live', docs: S.docs, settings: S.settings, dyn: await liveDyn({ forMode: 'live' }) });
+    const messages = appendInstruction(history, `【現在地同期】
+現在JST時刻まで世界を進め、全員の現在地（と必要なら予定）を update_live_state で一度に更新する。人物の生活として自然なら send_dm も使ってよい。未保存の終了日があれば append_live_record で保存する。
+うみは今いる部屋から動かさない。場面の本文は書かない。`);
+    await generate({ settings: S.settings, system, messages, docs: S.docs, tools: liveTools(), maxTokens: 2500 });
+    S.live.lastSync = Date.now();
+    await saveLive();
+    emit('live-state');
+    return true;
+  } catch (e) {
+    console.warn('location sync failed', e);
+    return false;
+  } finally { bgRunning = false; emit('bg', { text: '' }); }
+}
+
+// 背景処理：家族グループLINEの自動投稿
+export async function groupTick(force = false) {
+  const s = S.settings;
+  if (bgRunning || S.busy || !s.anthropicKey || !(s.groupAuto || force)) return false;
+  const p = jstParts();
+  const quiet = p.hour >= 2 && p.hour < 7;
+  const iv = Math.max(15, s.groupInterval || 120) * 60000;
+  if (!force && (quiet || Date.now() - (S.live.lastGroupAuto || 0) < iv)) return false;
+  bgRunning = true;
+  S.live.lastGroupAuto = Date.now(); await saveLive();
+  try {
+    const winKey = 'win:group';
+    const { history, windowStart } = await threadHistory('group', S.live[winKey] || 0, (m) => (m.role === 'user' ? `うみ：${m.content}` : m.content));
+    S.live[winKey] = windowStart;
+    const dyn = (await liveDyn({ forMode: 'group' })) + `\n\n【直近のLIVEの様子（参考。各人物が知り得る範囲だけを使う）】\n${await recentLive() || '（なし）'}`;
+    const system = buildSystem({ mode: 'group', docs: S.docs, settings: s, dyn });
+    const messages = appendInstruction(history, '（うみからの新しい投稿はない。今の時刻と各人物の生活の流れから、誰かが自然にグループへ投稿するなら、その投稿を書く。続いて他の人が反応してもよい。理由がなければ何も書かない。）');
+    const res = await generate({ settings: s, system, messages, docs: S.docs, maxTokens: 1500 });
+    const text = res.text.trim();
+    if (text && !/^（.*）$/.test(text)) {
+      await addMessage('group', 'assistant', text);
+      S.unread.group = (S.unread.group || 0) + 1;
+      await saveUnread();
+      emit('unread');
+      return true;
+    }
+  } catch (e) { console.warn('group tick failed', e); }
+  finally { bgRunning = false; }
+  return false;
 }
 
 export { buildSystem, charById };

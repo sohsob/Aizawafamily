@@ -12,6 +12,8 @@ export const DEFAULTS = {
   illustDoc: 'イラスト生成指示.txt',
   liveRecordDoc: '居住ビルLIVE記録.txt',
   syncOn: true,            // LIVEの現実時間同期
+  groupAuto: true,         // 家族グループLINEの自動投稿
+  groupInterval: 120,      // 自動投稿の間隔（分）
   imageModel: 'gpt-image-2',
   imageSize: '1024x1536',
   imageQuality: 'high',

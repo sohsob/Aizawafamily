@@ -2,17 +2,12 @@ import { db } from './db.js';
 import { S, addMessage, avatarHtml, saveLive } from './state.js';
 import { NPCS, FLOORS, roomById, roomLabel, bgUrl, jstParts, findChar, charById } from './data.js';
 import { buildSystem, withCacheOnLast, generate } from './engine.js';
-import { requireKey, liveDyn, liveTools, threadHistory, sceneImage, bus } from './services.js';
+import { requireKey, liveDyn, liveTools, threadHistory, sceneImage, bus, needsSync } from './services.js';
 import { segmentLive, renderSegment, renderUser, esc } from './render.js';
 import { icon } from './icons.js';
 import { $, h, toast, setStatus, modal, confirmBox, promptBox, sheet, composer, timeHM } from './ui.js';
 
 let abort = null;
-const hourKey = (ms) => { const p = jstParts(new Date(ms)); return `${p.date} ${p.hh}`; };
-
-export function needsSync() {
-  return !S.live.lastSync || hourKey(S.live.lastSync) !== hourKey(Date.now());
-}
 
 export async function render(root, params, { nav, setBackground }) {
   try { localStorage.setItem('kyojuu-mode', 'live'); } catch (_) {}

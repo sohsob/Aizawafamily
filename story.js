@@ -95,7 +95,10 @@ export async function render(root, params, { nav }) {
   };
   const drawAll = () => {
     list.innerHTML = '';
-    if (!msgs.length) list.innerHTML = `<div class="empty"><p>ここに物語が続いていきます。</p><p class="sub">${S.docs.length ? '前のチャットの続きから始めるなら、＋ →「会話ログを取り込む」で読み込めます。' : 'はじめに HOME → Prompt Vault で資料のtxtを取り込んでください。'}</p></div>`;
+    if (!msgs.length) {
+      list.innerHTML = `<div class="empty"><p>ここに物語が続いていきます。</p><p class="sub">${S.docs.length ? '前のチャットの続きから始めるなら、会話ログ（txt）を読み込んでください。' : 'はじめに HOME → Prompt Vault で資料のtxtを取り込んでください。'}</p><div class="actions" style="justify-content:center"><button class="btn primary" data-act="import">会話ログを取り込む</button></div></div>`;
+      $('[data-act=import]', list).onclick = importLog;
+    }
     for (const m of msgs) list.appendChild(el(m));
     header();
     scroll(true);

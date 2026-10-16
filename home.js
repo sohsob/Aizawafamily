@@ -29,6 +29,7 @@ export async function render(root, params, { nav, setBackground }) {
         <div class="clock">${p.m}/${p.d} ${p.hh}:${p.mm}</div>
         <button class="sync ${S.settings.syncOn ? 'on' : ''}"><i></i>現実時間同期 ${S.settings.syncOn ? 'ON' : 'OFF'}</button>
         <div class="weather"></div>
+        <div class="bgstat"></div>
       </header>
       <div class="seg">
         <button data-mode="story" class="${lastMode === 'story' ? 'on' : ''}">STORY</button>
@@ -93,7 +94,9 @@ export async function render(root, params, { nav, setBackground }) {
     setBackground(bgUrl('home', S.bg));
   }, 15000);
   const re = () => draw();
+  const bgs = (e) => { const el = $('.bgstat', root); if (el) el.textContent = e.detail.text || ''; };
+  bus.addEventListener('bg', bgs);
   bus.addEventListener('live-state', re);
   bus.addEventListener('unread', re);
-  return () => { clearInterval(timer); bus.removeEventListener('live-state', re); bus.removeEventListener('unread', re); };
+  return () => { bus.removeEventListener('bg', bgs); clearInterval(timer); bus.removeEventListener('live-state', re); bus.removeEventListener('unread', re); };
 }

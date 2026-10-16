@@ -2,7 +2,7 @@ import { db } from './db.js';
 import { S, avatarHtml, addMessage, saveUnread, saveLive } from './state.js';
 import { NPCS, charById, findChar, dmBgUrl } from './data.js';
 import { buildSystem, withCacheOnLast, appendInstruction, generate } from './engine.js';
-import { requireKey, liveDyn, threadHistory, emit } from './services.js';
+import { requireKey, liveDyn, threadHistory, emit, recentLive } from './services.js';
 import { esc } from './render.js';
 import { icon } from './icons.js';
 import { $, $$, h, toast, setStatus, sheet, confirmBox, promptBox, composer, timeHM, dateMD } from './ui.js';
@@ -56,15 +56,6 @@ async function renderList(root, { nav }) {
   $('.search input', root).oninput = (e) => draw(e.target.value.trim());
 }
 
-async function recentLive(maxChars = 3500) {
-  const live = (await db.messages('live')).filter(m => m.role === 'assistant' || (m.role === 'user' && !m.sync));
-  let out = '', n = 0;
-  for (let i = live.length - 1; i >= 0 && n < maxChars; i--) {
-    const t = (live[i].role === 'user' ? 'うみ：' : '') + live[i].content;
-    out = t + '\n\n' + out; n += t.length;
-  }
-  return out.slice(-maxChars);
-}
 
 async function renderChat(root, id, { nav, setBackground }) {
   document.body.dataset.view = 'dmchat';
