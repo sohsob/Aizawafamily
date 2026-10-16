@@ -216,6 +216,7 @@ body[data-view=story] #bg { display: none; }
 .lgroup { margin-bottom: 4px; }
 .lmsg { display: flex; align-items: flex-end; gap: 10px; margin: 0 0 10px; }
 .lmsg.me { justify-content: flex-end; }
+.lmsg.me .lbubble { max-width: min(78%, 560px); }
 .lmsg .side { flex: none; }
 .side-gap { width: 46px; flex: none; }
 .side-gap.sm { width: 34px; }

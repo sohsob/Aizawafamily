@@ -63,6 +63,8 @@ export async function render(root, params, { nav, setBackground }) {
       const acts = h(`<div class="lacts ${m.role === 'user' ? 'me' : ''}"><button data-a="copy">${icon('copy', 14)}コピー</button><button data-a="more">${icon('more', 14)}</button></div>`);
       $('[data-a=copy]', acts).onclick = async () => { try { await navigator.clipboard.writeText(m.content || m.prompt || ''); toast('コピーしました'); } catch (_) { toast('コピーできませんでした'); } };
       $('[data-a=more]', acts).onclick = () => msgMenu(m);
+      // 吹き出しの行と操作ボタンを縦に並べる（自分の発言は右寄せのまま）
+      if (node.tagName === 'ARTICLE') { const w = h('<div class="lwrap"></div>'); w.appendChild(node); node = w; }
       node.appendChild(acts);
     }
     node.dataset.id = m.id;
