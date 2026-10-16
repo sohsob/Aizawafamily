@@ -3,7 +3,7 @@ import { db } from './db.js';
 import { S, addMessage, avatarHtml, saveLive } from './state.js';
 import { NPCS, FLOORS, roomById, roomLabel, bgUrl, jstParts, findChar, charById } from './data.js';
 import { buildSystem, withCacheOnLast, generate } from './engine.js';
-import { requireKey, liveDyn, liveTools, threadHistory, sceneImage, bus, needsSync } from './services.js';
+import { requireKey, liveDyn, liveTools, threadHistory, sceneImage, bus, needsSync, stripCards, applyLocations, emit } from './services.js';
 import { segmentLive, renderSegment, renderUser, esc } from './render.js';
 import { icon } from './icons.js';
 import { $, h, toast, setStatus, modal, confirmBox, promptBox, sheet, composer, timeHM } from './ui.js';
@@ -49,7 +49,7 @@ export async function render(root, params, { nav, setBackground }) {
     } else if (m.role === 'user') {
       node = h(`<article class="lmsg me"><div class="lbubble me">${renderUser(m.content)}<time>${timeHM(m.createdAt)}</time></div>${avatarHtml('umi', 46, 'side')}</article>`);
     } else if (m.role === 'assistant') {
-      const segs = segmentLive(m.content);
+      const segs = segmentLive(stripCards(m.content).text);
       node = h('<div class="lgroup"></div>');
       segs.forEach((s, i) => {
         node.appendChild(h(`<article class="lmsg">${speakerAvatar(s.speaker) || '<span class="side-gap"></span>'}<div class="lbubble">${renderSegment(s)}${i === segs.length - 1 ? `<time>${timeHM(m.createdAt)}</time>` : ''}</div></article>`));
@@ -97,7 +97,7 @@ export async function render(root, params, { nav, setBackground }) {
     let txt = '', raf = 0;
     const paint = () => {
       raf = 0;
-      const segs = segmentLive(txt);
+      const segs = segmentLive(stripCards(txt).text);
       pend.innerHTML = segs.map(s => `<article class="lmsg">${speakerAvatar(s.speaker) || '<span class="side-gap"></span>'}<div class="lbubble">${renderSegment(s)}</div></article>`).join('') || '<article class="lmsg"><span class="side-gap"></span><div class="lbubble"><div class="typing"><span></span><span></span><span></span></div></div></article>';
       scroll();
     };
@@ -114,7 +114,9 @@ export async function render(root, params, { nav, setBackground }) {
       S.live.lastSync = Date.now();
       await saveLive();
       S.lastUsage = res.usage;
-      if (res.text.trim()) push(await addMessage('live', 'assistant', res.text, { room: S.live.umiRoom, usage: res.usage }));
+      const cleaned = stripCards(res.text);
+      if (Object.keys(cleaned.locations).length) { applyLocations(cleaned.locations); await saveLive(); emit('live-state'); }
+      if (cleaned.text.trim()) push(await addMessage('live', 'assistant', cleaned.text, { room: S.live.umiRoom, usage: res.usage }));
       header();
       if (res.stop_reason === 'max_tokens') toast('出力上限で途中までになりました', 3500);
     } catch (e) {

@@ -37,6 +37,7 @@ const MODE_BLOCK = {
 ・通常本文では画像生成を行わない（アプリの別機能）。「${s.illustDoc}」は外見が場面に作用する時だけ参照する。`,
   live: (s) => `【このアプリでの運用｜LIVE】
 あなたは「居住ビルの毎日」LIVE MODE を運用する。下の常時資料（LIVE MODE・世界観など）に従う。ただし表示と状態管理はこのアプリの仕様を優先する。
+・LIVEは通常ストーリーとは別の時間軸。全員が長期休み中で居住ビルに常駐しているので、人物を外出させない（現在地は居住ビル内の部屋）。STORYで起きた出来事は共有の記憶として話題にできるが、STORYの場面・居場所・進行中の用事は持ち込まない。
 ・CARD 1（現在地ボード）はアプリのHOME画面が表示する。本文には書かず、人物の現在地が確定・変化したら update_live_state で更新する。初回同期・時間帯を跨いだ同期では必ず全員分の現在地を update_live_state で送る。
 ・本文はCARD 2（現在の生活）にあたる場面だけを書く。「CARD」「HOUSE EVENT」などの見出しやラベルは書かない。地の文は「>」、台詞は引用の外に「人物名「台詞」」（人物名はフルネーム）。
 ・本文はうみが今いる部屋の場面を中心に書く。うみの居ない場所の出来事は、うみが知り得る形（物音、DM、来訪など）でだけ表に出す。
@@ -70,6 +71,7 @@ export function buildSystem({ mode, docs, settings, dyn, extra = {} }) {
   for (const d of base) stable.push(`━━━━━━━━━━━━━━━━━━━━\n【常時資料：${d.name}】\n━━━━━━━━━━━━━━━━━━━━\n\n${d.content}`);
   const system = [{ type: 'text', text: stable.join('\n\n'), cache_control: { type: 'ephemeral' } }];
   if (dyn) system.push({ type: 'text', text: dyn });
+  if (mode === 'live') system.push({ type: 'text', text: '【表示の最終ルール（LIVE MODE本文の表示構造より優先）】\n・「CARD 1」「CARD 2」「現在地ボード」「HOUSE EVENT」などの見出しと、人物ごとの現在地一覧は本文に書かない。現在地は update_live_state で送る（アプリがHOMEに表示する）。\n・本文は場面の地の文（>）と台詞だけ。' });
   return system;
 }
 
@@ -146,7 +148,7 @@ export function docTools(allDocs) {
 }
 
 export function roomListText() {
-  return ROOMS.map(r => `・${roomLabel(r)}${r.private ? `（PRIVATE：入室可＝${(r.allowed || []).map(id => CHARACTERS.find(c => c.id === id).short).join('・')}）` : ''}`).join('\n') + '\n・外出中（居住ビルの外）';
+  return ROOMS.map(r => `・${roomLabel(r)}${r.private ? `（PRIVATE：入室可＝${(r.allowed || []).map(id => CHARACTERS.find(c => c.id === id).short).join('・')}）` : ''}`).join('\n');
 }
 
 // 汎用：ツールつきで本文を生成

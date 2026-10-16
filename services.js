@@ -62,9 +62,51 @@ export async function liveDyn({ forMode = 'live', now = new Date() } = {}) {
   t += `\n\n【各人物の現在地（前回確定）】\n${locText()}`;
   if (S.live.comingUp.length) t += `\n\n【COMING UP（うみの予定）】\n${S.live.comingUp.map(c => `・${c.time} ${c.room}：${c.text}`).join('\n')}`;
   if (forMode === 'live') t += `\n\n【居住ビルの部屋】\n${roomListText()}`;
-  const st = await recentStory();
-  if (st) t += `\n\n【STORYの直近の状況（参考。最終場面の再演はせず、今も続いている変化・約束・知識だけを反映する）】\n${st}`;
+  const st = await storyMemory();
+  if (st) t += `\n\n【共有記憶：STORYで起きた出来事（最新の思い出記録）】
+LIVEはSTORYとは別の時間軸。LIVEでは全員が長期休み中で居住ビルに常駐している。下の出来事は、人物が実際に経験した共有の過去として「あんなことがあったね」と話題にできるが、STORYの場面・居場所・進行中の用事はLIVEへ持ち込まない。より前の出来事は「${S.settings.memoryDoc}」で確認できる。
+${st}`;
   return t;
+}
+
+// 人物の現在地を反映する。LIVEは全員が居住ビルに常駐する設定なので、建物外の場所は本人の部屋に置き換える。
+const HOME_ROOM = { shota: 'shota-study', kai: 'kai-room', keigo: 'keigo-room', saku: 'saku-room', sora: 'sora-room', nanami: 'nanami-room' };
+export function applyLocations(locations) {
+  const done = [];
+  for (const [name, place] of Object.entries(locations || {})) {
+    const c = findChar(name);
+    if (!c) continue;
+    const r = findRoom(place);
+    if (c.id === 'umi') { if (r) S.live.umiRoom = r.id; continue; }
+    const id = r ? r.id : HOME_ROOM[c.id];
+    if (!id) continue;
+    S.live.locations[c.id] = { room: id };
+    done.push(`${c.short}→${roomById(id).name}`);
+  }
+  return done;
+}
+
+// 本文に CARD 1（現在地ボード）が書かれていたら、現在地として取り込んで本文から外す
+export function stripCards(text) {
+  const lines = String(text || '').split('\n');
+  const out = [];
+  const locs = {};
+  let inCard = false;
+  for (const raw of lines) {
+    const l = raw.replace(/^\s*>\s?/, '').trim();
+    if (/^#*\s*\**\s*CARD\s*1/i.test(l)) { inCard = true; continue; }
+    if (/^#*\s*\**\s*CARD\s*2/i.test(l)) { inCard = false; continue; }
+    if (/^\[?(個別DM|［個別DM］)/.test(l)) continue;
+    if (inCard) {
+      const m = l.replace(/[⬜️⬛️▫️◻️□■・\-*]/g, '').match(/^(.+?)\s*(?:▶️|▶|→|:|：)\s*(.+)$/);
+      if (m) locs[m[1].trim()] = m[2].trim();
+      if (!l) continue;
+      if (m) continue;
+      inCard = false;
+    }
+    out.push(raw);
+  }
+  return { text: out.join('\n').replace(/^\s*\n+/, ''), locations: locs };
 }
 
 // LIVE系で使うツール
@@ -72,7 +114,7 @@ export function liveTools() {
   return [
     {
       name: 'update_live_state',
-      description: '人物の現在地と、うみの予定（COMING UP）を更新する。locations は {人物名: 部屋名}。外出中なら「外出中：行き先」。coming_up を渡すと一覧を置き換える。',
+      description: '人物の現在地と、うみの予定（COMING UP）を更新する。locations は {人物名: 居住ビル内の部屋名}。coming_up を渡すと一覧を置き換える。',
       input_schema: {
         type: 'object',
         properties: {
@@ -81,16 +123,7 @@ export function liveTools() {
         },
       },
       run: async ({ locations, coming_up }) => {
-        const done = [];
-        for (const [name, place] of Object.entries(locations || {})) {
-          const c = findChar(name);
-          if (!c) continue;
-          const outside = /外出|外|不在|出張|仕事|学校|雄英/.test(place) && !findRoom(place);
-          const r = outside ? null : findRoom(place);
-          if (c.id === 'umi') { if (r) S.live.umiRoom = r.id; continue; }
-          S.live.locations[c.id] = r ? { room: r.id } : { room: 'outside', label: String(place).replace(/^外出中[:：]?/, '') };
-          done.push(`${c.short}→${r ? r.name : '外出中'}`);
-        }
+        const done = applyLocations(locations);
         if (Array.isArray(coming_up)) S.live.comingUp = coming_up.slice(0, 6).map(x => ({ time: x.time || '', room: x.room || '', text: x.text || '' }));
         await saveLive();
         emit('live-state');
@@ -186,17 +219,13 @@ export async function recentLive(maxChars = 3500) {
   return out.slice(-maxChars);
 }
 
-// 直近のSTORY（最後に使ったスレッドの思い出記録＋末尾）
-export async function recentStory(maxChars = 2500) {
+// STORYの共有記憶（最後に使ったスレッドの最新の思い出記録）
+export async function storyMemory(maxChars = 3000) {
   let id = null;
   try { id = localStorage.getItem('kyojuu-last-thread'); } catch (_) {}
-  const threads = await db.all('threads');
+  const threads = (await db.all('threads')).filter(t => t.state);
   const t = threads.find(x => x.id === id) || threads.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-  if (!t) return '';
-  const msgs = (await db.messages(t.id)).filter(m => m.role === 'assistant' || m.role === 'user');
-  let tail = '';
-  for (let i = msgs.length - 1; i >= 0 && tail.length < maxChars; i--) tail = (msgs[i].role === 'user' ? 'うみ：' : '') + msgs[i].content + '\n\n' + tail;
-  return `${t.state ? `［最新の思い出記録］\n${t.state.slice(0, 2000)}\n\n` : ''}［最後の場面］\n${tail.slice(-maxChars)}`;
+  return t ? t.state.slice(0, maxChars) : '';
 }
 
 const hourKey = (ms) => { const p = jstParts(new Date(ms)); return `${p.date} ${p.hh}`; };
@@ -213,7 +242,7 @@ export async function syncLocations() {
     const system = buildSystem({ mode: 'live', docs: S.docs, settings: S.settings, dyn: await liveDyn({ forMode: 'live' }) });
     const messages = appendInstruction(history, `【現在地同期】
 現在JST時刻まで世界を進め、全員の現在地（と必要なら予定）を update_live_state で一度に更新する。人物の生活として自然なら send_dm も使ってよい。未保存の終了日があれば append_live_record で保存する。
-うみは今いる部屋から動かさない。場面の本文は書かない。`);
+全員、居住ビル内のどこかの部屋にいる（長期休み中なので外出させない）。うみは今いる部屋から動かさない。場面の本文は書かない。`);
     await generate({ settings: S.settings, system, messages, docs: S.docs, tools: liveTools(), maxTokens: 2500 });
     S.live.lastSync = Date.now();
     await saveLive();
